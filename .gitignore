@@ -1,0 +1,7 @@
+*.msi
+.vscode/
+.metadata/
+General/
+.project
+.settings/
+.dbeaver/
