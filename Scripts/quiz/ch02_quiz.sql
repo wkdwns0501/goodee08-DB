@@ -1,5 +1,4 @@
 -- 1. 데이터 CRUD 연습 문제
-
 CREATE DATABASE quiz;
 USE quiz;
 
