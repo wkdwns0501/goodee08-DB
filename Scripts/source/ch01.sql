@@ -230,7 +230,7 @@ COMMIT; -- 트랜잭션을 확정, DB에 반영
 -- MySQL Installer for Windows -> MySQL Installer 8.0.42
 
 -- 3) 헬로 월드
-SELECT 'hello world!';
+SELECT 'hello world!';	
 select 'hello world!';
 
 -- 기능적으로는 소문자든 대문자든 차이가 없고, 전적으로 가독성과 팀의 코딩 스타일 가이드에 따라 달라짐
