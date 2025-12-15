@@ -95,8 +95,8 @@ CREATE TABLE borrow_records (
 	member_id INTEGER NOT NULL, -- 회원_ID(NULL 불가)
 	book_id INTEGER NOT NULL, -- 도서_ID(NULL 불가)
 	PRIMARY KEY (id), -- 기본키 지정: id
-	FOREIGN KEY (member_id) REFERENCES members(member_id), -- 외래키 지정: member_id
-	FOREIGN KEY (book_id) REFERENCES books(book_id) -- 외래키 지정: book_id
+	FOREIGN KEY (member_id) REFERENCES members(id), -- 외래키 지정: member_id
+	FOREIGN KEY (book_id) REFERENCES books(id) -- 외래키 지정: book_id
 );
 
 -- library_staff 테이블
@@ -105,7 +105,7 @@ CREATE TABLE library_staff (
 	name VARCHAR(50) NOT NULL, -- 직원명(NULL 불가)
 	role VARCHAR(50) DEFAULT 'staff', -- 역할(기본값: staff)
 	employment_date DATE NOT NULL, -- 고용 날짜(NULL 불가)
-	salary INTEGER CHECK (salary >= 0), -- 급여(음수 불가, CHECK 제약 조건 사용)
+	salary INTEGER UNSIGNED CHECK (salary >= 0), -- 급여(음수 불가, CHECK 제약 조건 사용)
 	PRIMARY KEY (id) -- 기본키 지정: id
 );
 
@@ -207,5 +207,5 @@ CREATE TABLE library_staff (
 -- ③ 회원과 도서 간의 다대다 관계
 -- ④ 도서와 직원 간의 관계
 
--- 정답: 4
+-- 정답: 3
 
