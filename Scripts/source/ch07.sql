@@ -78,67 +78,6 @@ WHERE photo_id = 1; -- 3) 1번 사진과 관련된 것만 남긴 후
 -- 1) 조인 컬럼이 필요
 -- 두 테이블을 연결하기 위한 공통 컬럼이 필요
 -- 보통 외래키와 기본키를 기준으로 조인
-SELECT * 
-FROM comments
-JOIN users ON comments.user_id = users.id; -- 조인 컬럼(외래키) = 조인 컬럼(기본키)
-
--- 2) 조인 컬럼은 서로 자료형이 일치
--- 일치해야 조인 가능
--- 예: 숫자 1과 문자열'1'은 서로 조인 불가
--- 다만 DBMS마다 자동 형 변환이 될 수 있음
--- 정리하면 DB는 자료형이 달라도 조인을 허용하지만, 성능과 안정성을 위해 조인 컬럼은 자료형 일치가 원칙
-
--- 3) 조인 조건이 필요
--- ON 절과 함께 사용
--- 두 테이블을 어떻게 연결할지를 조인 조건으로 명시
-
--- 4) 연속적인 조인 가능
-SELECT nickname, content, filename -- 4) 원하는 컬럼 조회 
-FROM comments -- 1) 댓글 테이블에
-JOIN users ON comments.user_id = users.id -- 2) 사용자 테이블을 조인하고
-JOIN photos ON comments.photo_id = photos.id; -- 3) 다시 사진 테이블을 조인 후
-
--- 5) 중복 컬럼은 테이블명을 붙여 구분
--- 컬럼명이 같은 경우 어느 테이블의 것인지 명시해야 함(그렇지 않은 경우 에러 발생)
--- 사용 예: 중복 컬럼 id에 테이블명 명시
-SELECT 
--- 	comments.id, content, users.id, nickname
-	comments.id comments_id, 
-	content, 
-	users.id users_id, 
-	nickname
-FROM comments
-JOIN users ON comments.user_id = users.id
-WHERE photo_id = 2;
--- SQL Error [1052] [23000]: Column 'id' in field list is ambiguous
--- id 컬럼이 모호하다는 오류 메세지
--- 실무에서는 어떤 테이블의 컬럼인지 명시하는 것이 가독성을 높이고,
---     쉽게 인지할 수 있기 때문에 사용하는 것을 권장
--- 다음에 나오는 테이블 별칭과 함께 사용하는 것이 좋음
-
--- 6) 테이블명에 별칭 사용 가능
--- 간결한 쿼리 작성 및 가독성 향상에 도움
--- 사용 예: comments 테이블과 users 테이블에 별칭 붙이기
-SELECT 
-	c.content,
-	u.nickname
-FROM comments c
-JOIN users u ON c.user_id = u.id;
--- 실무에서 테이블에 별칭을 붙일 때는 AS를 보통 생략
--- (참고) SELECT 절에서 컬럼에 붙이는 별칭은 AS를 생략 안함
-
--- 7) 다양한 조인 유형 사용 가능
--- 조인은 크게 내부 조인(INNER JOIN)과 외부 조인(OUTER JOIN)으로 나뉨
--- 다양한 결과 테이블 생성에 도움
--- - INNER 조인
--- - LEFT 조인
--- - RIGHT 조인
--- - FULL 조인
-
--- 조인의 특징 7가지
--- 1) 조인 컬럼이 필요
--- 두 테이블을 연결하기 위한 공통 컬럼이 필요
--- 보통 외래키와 기본키를 기준으로 조인
 SELECT *
 FROM comments
 JOIN users ON comments.user_id = users.id; -- 조인 컬럼(외래키) = 조인 컬럼(기본키)
@@ -232,8 +171,6 @@ SELECT *
 FROM photos p
 INNER JOIN users s ON p.user_id = s.id;
 -- INNER JOIN은 조인의 방향이 바뀌어도 결과에는 영향X, 컬럼 순서만 다르게 나옴
-
-
 
 -- 2. 외부 조인(OUTER JOIN)
 -- 두 테이블 간의 조인 결과에 누락된 행을 포함시킬 수 있는 조인 방식
@@ -397,11 +334,6 @@ UNION ALL -- 단순히 두 쿼리의 결과 테이블을 위아래로 붙임
 -- (참고) 그 외 셀프 조인, CROSS 조인
 -- 자기 참조: 한 테이블의 PK를 같은 테이블의 다른 컬럼이 FK로 참조하는 구조
 -- 대표 예: 조직도/상사 관계, 댓글 / 대댓글
-
--- (참고) 그 외 셀프 조인, CROSS 조인
--- 자기 참조: 한 테이블의 PK를 같은 테이블의 다른 컬럼이 FK로 참조하는 구조
--- 대표 예: 조직도/상사 관계, 댓글 / 대댓글
-
 
 /*
 	7.3 조인 실습: 별그램 DB
