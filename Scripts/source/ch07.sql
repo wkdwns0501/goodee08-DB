@@ -245,7 +245,7 @@ UNION
 SELECT name, email FROM graduates; -- 졸업생
 
 -- (참고) UNION 연산을 활용하면 FULL 조인 결과를 생성 가능
--- photos 테이블과 users 테이블 FulLL 조인 = LEFT 조인 + RIGHT 조인 + 중복제거 => UNION
+-- photos 테이블과 users 테이블 FULL 조인 = LEFT 조인 + RIGHT 조인 + 중복제거 => UNION
 (
 	SELECT * 
 	FROM photos p 
