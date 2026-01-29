@@ -184,6 +184,7 @@ CREATE TABLE academic_calendar (
   FOREIGN KEY(admin_id) REFERENCES admin(admin_id)
 );
 
+-- ----------------------------------------------------- --
 
 -- MySQL dump 10.13  Distrib 8.0.44, for Win64 (x86_64)
 
@@ -288,7 +289,7 @@ CREATE TABLE `board` (
   `board_id` int NOT NULL AUTO_INCREMENT,
   `board_title` varchar(200) NOT NULL,
   `board_content` longtext NOT NULL,
-  `board_hit` int DEFAULT NULL,
+  `board_hit` int DEFAULT 0,
   `board_important` varchar(10) DEFAULT 'N',
   `board_reg_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `admin_id` int NOT NULL,
@@ -345,10 +346,10 @@ CREATE TABLE `lecture` (
   `lecture_room` varchar(50) NOT NULL,
   `lecture_credit` int NOT NULL,
   `lecture_year` varchar(4) NOT NULL,
-  `lecture_status` varchar(20) NOT NULL,
+  `lecture_status` varchar(20) NOT NULL DEFAULT '예정',
   `lecture_semester` int NOT NULL,
   `lecture_section` varchar(2) NOT NULL,
-  `lecture_type` varchar(20) NOT NULL DEFAULT '예정',
+  `lecture_type` varchar(20) NOT NULL,
   `lecture_current_people` int DEFAULT '0',
   `lecture_capacity` int NOT NULL,
   `major_id` int NOT NULL,
