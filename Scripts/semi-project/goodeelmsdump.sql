@@ -1280,7 +1280,8 @@ BEGIN
     DECLARE v_student_id INT;
     DECLARE v_student_major_id INT;
 
-    DECLARE v_has_student_major INT DEFAULT 0;
+    DECLARE v_has_student_major_col INT DEFAULT 0;
+    DECLARE v_has_student_major_table INT DEFAULT 0;
 
     DECLARE v_cutoff_at DATETIME;
 
@@ -1302,15 +1303,22 @@ BEGIN
     TRUNCATE TABLE lecture_history;
     SET FOREIGN_KEY_CHECKS = 1;
 
-    -- 1) student.major_id 컬럼 존재 여부 체크 (없으면 student_id로 전공 임의 부여)
+    -- 1) student.major_id 컬럼 존재 여부 체크
     SELECT COUNT(*)
-      INTO v_has_student_major
+      INTO v_has_student_major_col
       FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE()
        AND TABLE_NAME = 'student'
        AND COLUMN_NAME = 'major_id';
 
-    -- 2) 학기 목록(term_list) 만들기: lecture에 존재하는 (year, semester) 기준
+    -- 2) student_major 테이블 존재 여부 체크
+    SELECT COUNT(*)
+      INTO v_has_student_major_table
+      FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'student_major';
+
+    -- 3) 학기 목록(term_list): lecture 기준 + 2024/2025만
     DROP TEMPORARY TABLE IF EXISTS term_list;
     CREATE TEMPORARY TABLE term_list (
         term_no INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1330,11 +1338,12 @@ BEGIN
              ELSE STR_TO_DATE(CONCAT(l.lecture_year, '-01-01'), '%Y-%m-%d')
            END AS start_date
       FROM lecture l
+     WHERE CAST(l.lecture_year AS UNSIGNED) IN (2024, 2025)
      ORDER BY y, s;
 
     SELECT COUNT(*) INTO v_term_cnt FROM term_list;
 
-    -- 3) 학생 목록(student_list)
+    -- 4) 학생 목록(student_list)
     DROP TEMPORARY TABLE IF EXISTS student_list;
     CREATE TEMPORARY TABLE student_list (
         row_no INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1349,30 +1358,40 @@ BEGIN
 
     SELECT COUNT(*) INTO v_student_cnt FROM student_list;
 
-    -- 4) 학생별 생성
+    -- 5) 학생별 생성
     SET i = 1;
     student_loop: WHILE i <= v_student_cnt DO
         SELECT student_id INTO v_student_id
           FROM student_list
          WHERE row_no = i;
 
-        -- 학생 전공
-        IF v_has_student_major > 0 THEN
-            SELECT major_id INTO v_student_major_id
-              FROM student
-             WHERE student_id = v_student_id;
-            IF v_student_major_id IS NULL THEN
-                SET v_student_major_id = (v_student_id MOD 10) + 1;
-            END IF;
-        ELSE
+        -- 학생 전공(학과) 결정: student_major 우선, 없으면 student.major_id, 없으면 임의
+        SET v_student_major_id = NULL;
+
+        IF v_has_student_major_table > 0 THEN
+            SELECT sm.major_id
+              INTO v_student_major_id
+              FROM student_major sm
+             WHERE sm.student_id = v_student_id
+             LIMIT 1;
+        END IF;
+
+        IF v_student_major_id IS NULL AND v_has_student_major_col > 0 THEN
+            SELECT s.major_id
+              INTO v_student_major_id
+              FROM student s
+             WHERE s.student_id = v_student_id;
+        END IF;
+
+        IF v_student_major_id IS NULL THEN
             SET v_student_major_id = (v_student_id MOD 10) + 1;
         END IF;
 
-        -- 상태 변경 cutoff (휴학/자퇴/퇴학, + 덤프에 '휴학학' 같은 오타도 있어 LIKE 처리)
+        -- 상태 변경 cutoff (휴학/자퇴/퇴학)
         SELECT MIN(status_at) INTO v_cutoff_at
           FROM student_status_history
          WHERE student_id = v_student_id
-           AND (status_type IN ('자퇴','퇴학') OR status_type LIKE '휴학%');
+           AND TRIM(status_type) IN ('자퇴','퇴학','휴학');
 
         IF v_cutoff_at IS NULL THEN
             SET v_cutoff_at = '9999-12-31 00:00:00';
@@ -1384,7 +1403,7 @@ BEGIN
             lecture_code BIGINT NOT NULL PRIMARY KEY
         ) ENGINE=Memory;
 
-        -- 5) 학기별 생성
+        -- 학기별 생성
         SET j = 1;
         term_loop: WHILE j <= v_term_cnt DO
             SELECT y, s, start_date
@@ -1406,7 +1425,7 @@ BEGIN
             SET v_credit_sum = 0;
             SET v_try = 0;
 
-            -- 최대 시도 횟수 내에서 랜덤으로 담되, 학점 21 이하로 유지
+            -- 최대 시도 내 랜덤으로 담되, 학점 21 이하
             pick_loop: WHILE v_try < 80 DO
                 -- 70% 전공 우선, 30% 교양/기타
                 SET v_pick_major = (RAND() < 0.70);
@@ -1414,8 +1433,8 @@ BEGIN
                 SET v_code = NULL;
                 SET v_credit = NULL;
 
+                -- 전공 후보: 학생 학과 == 강의 학과(major_id 일치) 강제
                 IF v_pick_major = 1 THEN
-                    -- 전공 후보(학생 전공 major_id + lecture_type='전공')
                     SELECT t.lecture_code, t.lecture_credit
                       INTO v_code, v_credit
                       FROM (
@@ -1432,7 +1451,7 @@ BEGIN
                      LIMIT 1;
                 END IF;
 
-                -- 전공에서 못 뽑았으면 교양(또는 전체)로 fallback
+                -- 전공에서 못 뽑았으면 교양 fallback
                 IF v_code IS NULL THEN
                     SELECT t.lecture_code, t.lecture_credit
                       INTO v_code, v_credit
@@ -1449,7 +1468,7 @@ BEGIN
                      LIMIT 1;
                 END IF;
 
-                -- 교양도 없으면 전체에서 채움(데이터 부족 방어)
+                -- 교양도 없으면 전체 fallback
                 IF v_code IS NULL THEN
                     SELECT t.lecture_code, t.lecture_credit
                       INTO v_code, v_credit
@@ -1486,31 +1505,27 @@ BEGIN
                  ORDER BY RAND()
                  LIMIT 1;
 
-                -- 점수: 0.0 ~ 4.5 (0.5 단위)
-                -- 점수 분포: 70%는 2.5~3.5, 30%는 나머지(0.0~2.0, 4.0~4.5)
-				-- 0.5 단위 유지
-				IF RAND() < 0.70 THEN
-				    -- 2.5, 3.0, 3.5 중 하나 (각각 동일 확률)
-				    SET v_score = 2.5 + (FLOOR(RAND() * 3) * 0.5);
-				ELSE
-				    -- 나머지 점수 풀: 0.0,0.5,1.0,1.5,2.0,4.0,4.5 (7개)
-				    SET v_score = CASE FLOOR(RAND() * 7)
-				        WHEN 0 THEN 0.0
-				        WHEN 1 THEN 0.5
-				        WHEN 2 THEN 1.0
-				        WHEN 3 THEN 1.5
-				        WHEN 4 THEN 2.0
-				        WHEN 5 THEN 4.0
-				        ELSE 4.5
-				    END;
-				END IF;
+                -- 점수 분포: 70%는 2.5~3.5, 30%는 나머지(0.5 단위 유지)
+                IF RAND() < 0.70 THEN
+                    SET v_score = 2.5 + (FLOOR(RAND() * 3) * 0.5); -- 2.5, 3.0, 3.5
+                ELSE
+                    SET v_score = CASE FLOOR(RAND() * 7)
+                        WHEN 0 THEN 0.0
+                        WHEN 1 THEN 0.5
+                        WHEN 2 THEN 1.0
+                        WHEN 3 THEN 1.5
+                        WHEN 4 THEN 2.0
+                        WHEN 5 THEN 4.0
+                        ELSE 4.5
+                    END;
+                END IF;
 
                 INSERT IGNORE INTO lecture_history(student_id, lecture_id, lecture_score)
                 VALUES (v_student_id, v_lecture_id, v_score);
 
                 INSERT IGNORE INTO taken_codes(lecture_code) VALUES (v_code);
 
-                -- 3.5 이상이면 이후 동일 코드 재수강 금지
+                -- 3.5 이상이면 이후 동일 lecture_code 재수강 금지
                 IF v_score >= 3.5 THEN
                     INSERT IGNORE INTO passed_codes(lecture_code) VALUES (v_code);
                 END IF;
@@ -1518,7 +1533,6 @@ BEGIN
                 SET v_credit_sum = v_credit_sum + v_credit;
                 SET v_try = v_try + 1;
 
-                -- 딱 21이면 종료
                 IF v_credit_sum = 21 THEN
                     LEAVE pick_loop;
                 END IF;
@@ -1534,7 +1548,6 @@ END $$
 
 DELIMITER ;
 
--- 실행
 CALL insert_lecture_history_dummy_v1();
 
 -- lecture_history 더미 확인용
